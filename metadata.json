@@ -1,0 +1,8 @@
+
+{
+  "name": "Aura: AI Personal Stylist",
+  "description": "Aura is a smart wardrobe and personal stylist application. It digitizes a user's clothing collection, provides personalized outfit recommendations, helps find new clothes, and generates AI Styleboards to visualize outfits.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "aura:-ai-personal-stylist",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start:server": "node server.cjs",
+    "build:css": "tailwindcss -i ./styles/tailwind.css -o ./dist/styles.css --watch"
+  },
+  "dependencies": {
+    "@google/genai": "^1.28.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "lucide-react": "^0.552.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.5",
+    "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
