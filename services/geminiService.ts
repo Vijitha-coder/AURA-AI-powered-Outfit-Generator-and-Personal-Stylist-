@@ -2,14 +2,14 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { ClothingItem, GeneratedOutfits, OutfitCritique, OutfitOfTheDaySuggestion } from '../types';
 
 // Ensure the API key is available. In a real app, this would be handled more securely.
-if (!process.env.API_KEY) {
+if (!import.meta.env.VITE_API_KEY) {
   // In a real scenario, you'd have a more robust way to handle this,
   // but for this example, we'll throw an error.
-  // The environment setup ensures process.env.API_KEY is available.
-  console.warn("API_KEY environment variable not set. Using a placeholder.");
+  // The environment setup ensures import.meta.env.VITE_API_KEY is available.
+  console.warn("VITE_API_KEY environment variable not set. Using a placeholder.");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY! });
 
 export async function analyzeClothingImage(imageBase64: string, mimeType: string): Promise<Omit<ClothingItem, 'id' | 'imageData' | 'mimeType'>> {
   const model = 'gemini-2.5-flash';
