@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start:server": "node server.cjs",
+    "start": "npm run build && node server.cjs",
     "build:css": "tailwindcss -i ./styles/tailwind.css -o ./dist/styles.css --watch"
   },
   "dependencies": {

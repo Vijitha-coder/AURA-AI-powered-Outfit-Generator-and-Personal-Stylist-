@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -7,8 +8,21 @@ const app = express();
 const port = process.env.PORT || 3002;
 
 // Middleware
-app.use(cors());
+// CORS configuration for separated frontend/backend deployment
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',      // Local frontend
+    'http://localhost:5173',      // Vite dev server
+    'https://aura-ai-powered-outfit-generator-an.vercel.app',  // Production Vercel domain
+    process.env.FRONTEND_URL      // Allow custom frontend URL via env
+  ].filter(Boolean),
+  credentials: true
+};
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
+
+// Serve static files from dist (frontend build) - only for Render single-service deployment
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -312,6 +326,11 @@ app.delete('/api/wardrobe/:id', async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+// Serve React app for all non-API routes (React Router)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
 
 app.listen(port, () => {
   console.log(`Aura backend server listening on http://localhost:${port}`);

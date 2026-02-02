@@ -1,3 +1,4 @@
+// Backend API URL - set via environment variable in deployment
 const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3002';
 
 // Helper function to get auth header
