@@ -6,7 +6,7 @@ export type ClothingSeason = "spring" | "summer" | "fall" | "winter" | "all-seas
 export interface ClothingItem {
   id: string;
   imageData: string; // base64 string or URL
-  mimeType: string;
+  mimetype: string;
   category: ClothingCategory;
   color: string;
   pattern: ClothingPattern;

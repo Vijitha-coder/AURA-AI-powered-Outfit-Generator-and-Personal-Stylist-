@@ -19,7 +19,7 @@ const AddItemPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageDataUrl, setImageDataUrl] = useState<string>('');
-  const [itemDetails, setItemDetails] = useState<Omit<ClothingItem, 'id' | 'imageData' | 'mimeType'>>({
+  const [itemDetails, setItemDetails] = useState<Omit<ClothingItem, 'id' | 'imageData' | 'mimetype'>>({
     category: 'tops',
     color: '',
     pattern: 'solid',
@@ -70,7 +70,7 @@ const AddItemPage: React.FC = () => {
     try {
       const saved = await addWardrobeItem({
         imageData: base64,
-        mimeType: imageFile.type,
+        mimetype: imageFile.type,
         category: itemDetails.category,
         color: itemDetails.color,
         pattern: itemDetails.pattern,

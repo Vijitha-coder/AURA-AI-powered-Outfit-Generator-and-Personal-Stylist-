@@ -3,7 +3,11 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { WardrobeProvider, useWardrobe } from './context/WardrobeContext';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import Header from './components/Header';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import DashboardPage from './pages/DashboardPage';
 import WardrobePage from './pages/WardrobePage';
 import AddItemPage from './pages/AddItemPage';
@@ -23,14 +27,21 @@ const AppLayout: React.FC = () => {
             <Header />
             <main className="flex-grow">
                 <Routes>
-                    <Route path="/dashboard" element={<DashboardPage />} />
-                    <Route path="/wardrobe" element={<WardrobePage />} />
-                    <Route path="/wardrobe/new" element={<AddItemPage />} />
-                    <Route path="/stylist" element={<StylistPage />} />
-                    <Route path="/stylist/results" element={<OutfitResultsPage />} />
-                    <Route path="/rate-outfit" element={<RateOutfitPage />} />
-                    <Route path="/chat" element={<ChatPage />} />
-                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                    {/* Public routes */}
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/signup" element={<SignupPage />} />
+                    
+                    {/* Protected routes */}
+                    <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+                    <Route path="/wardrobe" element={<ProtectedRoute><WardrobePage /></ProtectedRoute>} />
+                    <Route path="/wardrobe/new" element={<ProtectedRoute><AddItemPage /></ProtectedRoute>} />
+                    <Route path="/stylist" element={<ProtectedRoute><StylistPage /></ProtectedRoute>} />
+                    <Route path="/stylist/results" element={<ProtectedRoute><OutfitResultsPage /></ProtectedRoute>} />
+                    <Route path="/rate-outfit" element={<ProtectedRoute><RateOutfitPage /></ProtectedRoute>} />
+                    <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+                    
+                    {/* Redirect root to login or dashboard */}
+                    <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
             </main>
         </div>
@@ -39,11 +50,13 @@ const AppLayout: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <WardrobeProvider>
-        <HashRouter>
-            <AppLayout />
-        </HashRouter>
-    </WardrobeProvider>
+    <AuthProvider>
+      <WardrobeProvider>
+          <HashRouter>
+              <AppLayout />
+          </HashRouter>
+      </WardrobeProvider>
+    </AuthProvider>
   );
 };
 

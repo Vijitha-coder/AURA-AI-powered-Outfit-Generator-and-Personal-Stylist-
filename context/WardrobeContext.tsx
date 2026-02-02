@@ -7,7 +7,7 @@ const initialWardrobe: ClothingItem[] = [
   {
     id: '1',
     imageData: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=464&auto=format&fit=crop',
-    mimeType: 'image/jpeg',
+    mimetype: 'image/jpeg',
     category: 'tops',
     color: 'Black',
     pattern: 'graphic',
@@ -18,7 +18,7 @@ const initialWardrobe: ClothingItem[] = [
   {
     id: '2',
     imageData: 'https://images.unsplash.com/photo-1602293589914-9e19577a756b?q=80&w=387&auto=format&fit=crop',
-    mimeType: 'image/jpeg',
+    mimetype: 'image/jpeg',
     category: 'bottoms',
     color: 'Blue',
     pattern: 'solid',
@@ -29,7 +29,7 @@ const initialWardrobe: ClothingItem[] = [
   {
     id: '3',
     imageData: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?q=80&w=387&auto=format&fit=crop',
-    mimeType: 'image/jpeg',
+    mimetype: 'image/jpeg',
     category: 'shoes',
     color: 'White',
     pattern: 'solid',
@@ -40,7 +40,7 @@ const initialWardrobe: ClothingItem[] = [
   {
     id: '4',
     imageData: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?q=80&w=435&auto=format&fit=crop',
-    mimeType: 'image/jpeg',
+    mimetype: 'image/jpeg',
     category: 'outerwear',
     color: 'Brown',
     pattern: 'solid',

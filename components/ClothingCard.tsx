@@ -8,7 +8,7 @@ interface ClothingCardProps {
 }
 
 const ClothingCard: React.FC<ClothingCardProps> = ({ item, onDelete }) => {
-  const imageUrl = item.imageData.startsWith('http') ? item.imageData : `data:${item.mimeType};base64,${item.imageData}`;
+  const imageUrl = item.imageData.startsWith('http') ? item.imageData : `data:${item.mimetype};base64,${item.imageData}`;
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();

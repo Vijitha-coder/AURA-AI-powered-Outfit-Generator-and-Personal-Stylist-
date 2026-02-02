@@ -1,47 +1,99 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
-const path = require('path');
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
 
 const app = express();
-// Use PORT env var if set; default to 3002 to avoid conflicting with the frontend dev server
-const port = process.env.PORT || 3002; // Port for our backend API
+const port = process.env.PORT || 3002;
 
 // Middleware
-app.use(cors()); // Allow requests from our frontend
-app.use(express.json({ limit: '10mb' })); // Allow parsing of JSON request bodies (and increase limit for images)
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
 
-// Ensure database file lives next to this server file
-const dbFile = path.resolve(__dirname, 'wardrobe.sqlite');
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
 
-// Connect to SQLite database
-const db = new sqlite3.Database(dbFile, (err) => {
-  if (err) {
-    console.error(err.message);
-    return;
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase credentials. Please set SUPABASE_URL and SUPABASE_SERVICE_KEY in .env');
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+console.log('Connected to Supabase');
+
+// Helper function to upload image to Supabase Storage
+async function uploadImageToStorage(imageBase64, mimetype, itemId) {
+  try {
+    // Convert base64 to buffer
+    const buffer = Buffer.from(imageBase64, 'base64');
+    
+    // Determine file extension from mime type
+    const mimeToExt = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+    };
+    const ext = mimeToExt[mimetype] || 'jpg';
+    const fileName = `${itemId}.${ext}`;
+
+    // Upload to Supabase Storage bucket 'wardrobe-images'
+    const { data, error } = await supabase.storage
+      .from('wardrobe-images')
+      .upload(fileName, buffer, {
+        contentType: mimetype,
+        upsert: false,
+      });
+
+    if (error) {
+      throw new Error(`Storage upload failed: ${error.message}`);
+    }
+
+    // Get the public URL for the uploaded image
+    const { data: urlData } = supabase.storage
+      .from('wardrobe-images')
+      .getPublicUrl(fileName);
+
+    return urlData?.publicUrl;
+  } catch (err) {
+    throw new Error(`Failed to upload image: ${err instanceof Error ? err.message : String(err)}`);
   }
-  console.log('Connected to the wardrobe SQLite database at', dbFile);
-});
+}
 
-// Create the wardrobe table if it doesn't exist
-db.run(`CREATE TABLE IF NOT EXISTS wardrobe (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  imageData TEXT NOT NULL,
-  mimeType TEXT NOT NULL,
-  category TEXT,
-  color TEXT,
-  pattern TEXT,
-  style TEXT,
-  season TEXT,
-  description TEXT
-)`);
+// Helper function to delete image from Supabase Storage
+async function deleteImageFromStorage(itemId, mimetype) {
+  try {
+    const mimeToExt = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+    };
+    const ext = mimeToExt[mimetype] || 'jpg';
+    const fileName = `${itemId}.${ext}`;
+
+    const { error } = await supabase.storage
+      .from('wardrobe-images')
+      .remove([fileName]);
+
+    if (error) {
+      console.warn(`Failed to delete image ${fileName}:`, error.message);
+      // Don't throw - continue with DB deletion even if storage deletion fails
+    }
+  } catch (err) {
+    console.warn(`Storage delete error for item ${itemId}:`, err);
+    // Continue with DB deletion even if storage deletion fails
+  }
+}
 
 // --- API Endpoints ---
 
 // POST /api/analyze - Analyze an uploaded clothing image using GenAI (server-side)
 app.post('/api/analyze', express.json({ limit: '15mb' }), async (req, res) => {
-  const { imageBase64, mimeType } = req.body || {};
-  if (!imageBase64 || !mimeType) return res.status(400).json({ error: 'Missing imageBase64 or mimeType' });
+  const { imageBase64, mimetype } = req.body || {};
+  if (!imageBase64 || !mimetype) return res.status(400).json({ error: 'Missing imageBase64 or mimetype' });
 
   // Expect GENAI_API_KEY in environment on server
   const GENAI_API_KEY = process.env.GENAI_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY;
@@ -62,7 +114,7 @@ app.post('/api/analyze', express.json({ limit: '15mb' }), async (req, res) => {
       contents: {
         parts: [
           { text: prompt },
-          { inlineData: { data: imageBase64, mimeType } },
+          { inlineData: { data: imageBase64, mimeType: mimetype } },
         ],
       },
       config: {
@@ -91,47 +143,171 @@ app.post('/api/analyze', express.json({ limit: '15mb' }), async (req, res) => {
   }
 });
 
-// GET /api/wardrobe - Fetch all clothing items
-app.get('/api/wardrobe', (req, res) => {
-  db.all('SELECT * FROM wardrobe', [], (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
+// GET /api/wardrobe - Fetch all clothing items for the current user
+app.get('/api/wardrobe', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: 'Missing authorization header' });
     }
-    // Convert ID to string to match frontend type
-    const items = rows.map(item => ({ ...item, id: String(item.id) }));
-    res.json(items);
-  });
+
+    // Get user from JWT token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !userData.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const userId = userData.user.id;
+
+    // Fetch user's wardrobe items
+    const { data, error } = await supabase
+      .from('wardrobe')
+      .select('*')
+      .eq('user_id', userId)
+      .order('id', { ascending: true });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json(data || []);
+  } catch (err) {
+    console.error('Fetch wardrobe error:', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
 });
 
 // POST /api/wardrobe - Add a new clothing item
-app.post('/api/wardrobe', (req, res) => {
-  const { imageData, mimeType, category, color, pattern, style, season, description } = req.body;
-  const sql = `INSERT INTO wardrobe (imageData, mimeType, category, color, pattern, style, season, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-  
-  db.run(sql, [imageData, mimeType, category, color, pattern, style, season, description], function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
+app.post('/api/wardrobe', async (req, res) => {
+  const { imageData, mimetype, category, color, pattern, style, season, description } = req.body;
+
+  if (!imageData || !mimetype) {
+    return res.status(400).json({ error: 'Missing imageData or mimetype' });
+  }
+
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: 'Missing authorization header' });
     }
-    // Return the newly created item with its new ID
-    res.status(201).json({ ...req.body, id: String(this.lastID) });
-  });
+
+    // Get user from JWT token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !userData.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const userId = userData.user.id;
+
+    // First, insert the item without the image URL to get an ID
+    // Omit created_at to let database handle it (avoids schema cache issues)
+    const { data: insertedData, error: insertError } = await supabase
+      .from('wardrobe')
+      .insert({
+        user_id: userId,
+        mimetype,
+        category,
+        color,
+        pattern,
+        style,
+        season,
+        description,
+      })
+      .select();
+
+    if (insertError) {
+      console.error('Insert error:', insertError);
+      return res.status(500).json({ error: insertError.message });
+    }
+
+    if (!insertedData || insertedData.length === 0) {
+      return res.status(500).json({ error: 'Failed to create wardrobe item' });
+    }
+
+    const itemId = insertedData[0].id;
+
+    // Upload image to storage
+    const imageUrl = await uploadImageToStorage(imageData, mimetype, itemId);
+
+    // Update the item with the image URL
+    const { data: updatedData, error: updateError } = await supabase
+      .from('wardrobe')
+      .update({ imageurl: imageUrl })
+      .eq('id', itemId)
+      .select();
+
+    if (updateError) {
+      console.error('Failed to update item with image URL:', updateError);
+      return res.status(500).json({ error: 'Failed to save image URL' });
+    }
+
+    res.status(201).json(updatedData[0]);
+  } catch (err) {
+    console.error('Add wardrobe item error:', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
 });
 
 // DELETE /api/wardrobe/:id - Delete a clothing item
-app.delete('/api/wardrobe/:id', (req, res) => {
+app.delete('/api/wardrobe/:id', async (req, res) => {
   const { id } = req.params;
-  db.run('DELETE FROM wardrobe WHERE id = ?', id, function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
+
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: 'Missing authorization header' });
     }
-    if (this.changes === 0) {
-      return res.status(404).json({ message: 'Item not found' });
+
+    // Get user from JWT token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !userData.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
+
+    const userId = userData.user.id;
+
+    // Get the item first to verify ownership and retrieve mimetype
+    const { data: itemData, error: fetchError } = await supabase
+      .from('wardrobe')
+      .select('mimetype, user_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    // Verify user owns this item
+    if (itemData.user_id !== userId) {
+      return res.status(403).json({ error: 'Unauthorized - you do not own this item' });
+    }
+
+    // Delete image from storage
+    if (itemData && itemData.mimetype) {
+      await deleteImageFromStorage(id, itemData.mimetype);
+    }
+
+    // Delete item from database
+    const { error: deleteError } = await supabase
+      .from('wardrobe')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      return res.status(500).json({ error: deleteError.message });
+    }
+
     res.status(200).json({ message: 'Item deleted successfully' });
-  });
+  } catch (err) {
+    console.error('Delete wardrobe item error:', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
 });
 
 // Health check
