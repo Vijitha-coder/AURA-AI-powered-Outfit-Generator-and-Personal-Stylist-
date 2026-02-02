@@ -3,6 +3,3 @@ builder = "nixpacks"
 
 [deploy]
 startCommand = "node server.cjs"
-restartPolicyMaxRetries = 3
-healthcheckPath = "/api/health"
-healthcheckTimeout = 30
